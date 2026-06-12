@@ -1,0 +1,39 @@
+{
+  "name": "cc-status-buttons",
+  "version": "0.1.0",
+  "description": "Clickable buttons for the Claude Code status line — one declarative API, per-terminal click transports (http, custom scheme, VS Code URI, prompt sentinel).",
+  "type": "module",
+  "main": "src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./dispatch": "./src/dispatch.mjs",
+    "./registry": "./src/registry.mjs"
+  },
+  "bin": {
+    "cc-status-buttons": "src/cli.mjs"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "src",
+    "adapters",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noam-bash/cc-status-buttons.git"
+  },
+  "keywords": [
+    "claude-code",
+    "statusline",
+    "buttons",
+    "osc8",
+    "terminal"
+  ],
+  "author": "Noam Barkay <noambarkay95@gmail.com>",
+  "license": "MIT"
+}

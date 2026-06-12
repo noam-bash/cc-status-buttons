@@ -1,0 +1,23 @@
+{
+  "name": "cc-status-buttons",
+  "displayName": "CC Status Buttons",
+  "description": "Silent click handler for Claude Code status line buttons (vscode:// URI transport).",
+  "version": "0.1.0",
+  "publisher": "noam-bash",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/noam-bash/cc-status-buttons.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onUri"
+  ],
+  "main": "./extension.js",
+  "contributes": {}
+}
