@@ -11,7 +11,7 @@ const DIR = mkdtempSync(join(tmpdir(), 'ccsb-test-'));
 process.env.CC_STATUS_BUTTONS_REGISTRY = join(DIR, 'registry.json');
 process.env.CC_STATUS_BUTTONS_STATE = join(DIR, 'state.json');
 
-const { ensureRegistry, upsertButtons, readRegistry } = await import('../src/registry.mjs');
+const { ensureRegistry, upsertButtons, readRegistry, tmuxRangeFor } = await import('../src/registry.mjs');
 const { renderButtons, pressUrl } = await import('../src/render.mjs');
 const { detectTransport } = await import('../src/detect.mjs');
 const { dispatch } = await import('../src/dispatch.mjs');
@@ -20,6 +20,7 @@ const { readState } = await import('../src/state.mjs');
 const BUS = fileURLToPath(new URL('../src/bus.mjs', import.meta.url));
 const HOOK = fileURLToPath(new URL('../adapters/prompt-hook.mjs', import.meta.url));
 const CLI = fileURLToPath(new URL('../src/cli.mjs', import.meta.url));
+const TMUX_PRESS = fileURLToPath(new URL('../adapters/tmux/press.mjs', import.meta.url));
 
 test.after(() => rmSync(DIR, { recursive: true, force: true }));
 
@@ -53,7 +54,12 @@ test('registry: upsert is idempotent and validates input', () => {
   const tokenBefore = a.token;
   const b = upsertButtons([{ id: 'next', icon: '▶', command: ['node', 'x.mjs'], sentinel: '>>' }]);
   assert.equal(b.token, tokenBefore);
-  assert.deepEqual(b.buttons.next, { icon: '▶', command: ['node', 'x.mjs'], sentinel: '>>' });
+  assert.deepEqual(b.buttons.next, {
+    icon: '▶',
+    command: ['node', 'x.mjs'],
+    sentinel: '>>',
+    tmuxRange: tmuxRangeFor('next'),
+  });
   assert.throws(() => upsertButtons([{ id: 'bad id!' }]));
   assert.throws(() => upsertButtons([{ id: 'shelly', command: 'rm -rf /' }]));
 });
@@ -89,6 +95,39 @@ test('detect: environment matrix', () => {
   assert.equal(detectTransport(on, { WT_SESSION: 'x' }, 'win32'), 'http');
   assert.equal(detectTransport(on, {}, 'darwin'), 'scheme');
   assert.equal(detectTransport(off, {}, 'linux'), 'http');
+  // tmux is preferred inside $TMUX once the bar is wired (transports.tmux).
+  assert.equal(detectTransport({ transports: { tmux: true } }, { TMUX: '/tmp/tmux-1/default,1,0' }, 'linux'), 'tmux');
+  assert.equal(detectTransport({ transports: {} }, { TMUX: '/tmp/tmux-1/default,1,0' }, 'linux'), 'http');
+});
+
+test('tmux: range token is stable and within tmux 15-byte limit', () => {
+  const t = tmuxRangeFor('stock-ticker-next');
+  assert.equal(t, tmuxRangeFor('stock-ticker-next')); // deterministic
+  assert.ok(t.length <= 15);
+  assert.match(t, /^b[0-9a-f]+$/);
+  assert.notEqual(tmuxRangeFor('a'), tmuxRangeFor('b'));
+});
+
+test('tmux: registry stores a tmuxRange and render stays plain for tmux transport', () => {
+  const reg = upsertButtons([{ id: 'tnext', icon: '▶' }]);
+  assert.equal(reg.buttons.tnext.tmuxRange, tmuxRangeFor('tnext'));
+  const out = renderButtons(reg, [{ id: 'tnext', icon: '▶' }], { transport: 'tmux' });
+  assert.ok(out.includes('▶'));
+  assert.ok(!out.includes('\x1b]8;;')); // no OSC8 link in Claude Code's statusline
+});
+
+test('tmux: press dispatcher resolves the range token to its button', async () => {
+  const marker = join(DIR, 'tmux-marker.txt');
+  const reg = upsertButtons([markerButton('tmux-btn', marker)]);
+  const token = reg.buttons['tmux-btn'].tmuxRange;
+
+  const bad = spawnSync(process.execPath, [TMUX_PRESS, 'bdeadbeef00'], { env: process.env });
+  assert.equal(bad.status, 0); // unknown token: no-op
+  assert.ok(!existsSync(marker));
+
+  const ok = spawnSync(process.execPath, [TMUX_PRESS, token], { env: process.env });
+  assert.equal(ok.status, 0);
+  assert.ok(await waitFor(() => existsSync(marker)), 'tmux press did not run command');
 });
 
 test('dispatch: runs the command and records pressed state', async () => {

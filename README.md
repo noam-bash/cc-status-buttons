@@ -29,6 +29,7 @@ console.log(`my segment ${bar.render()}`);
 
 | Environment | Transport | Click feel |
 |---|---|---|
+| **tmux (any terminal)** | **click in tmux's status bar → `run-shell`** | **Silent, instant, truly direct** |
 | WezTerm / kitty | `ccbtn://` via `open-uri` / `open_actions` | Silent, instant |
 | macOS terminals | `ccbtn://` via registered app handler | Silent, instant |
 | Linux desktop terminals | `ccbtn://` via `.desktop` handler (emulator-dependent) | Silent where supported |
@@ -36,7 +37,22 @@ console.log(`my segment ${bar.render()}`);
 | Windows Terminal | `http://127.0.0.1` → button bus | Browser tab flash |
 | Keyboard (anywhere) | type the button's sentinel (e.g. `>>`) as a prompt | Silent, instant |
 
-Detection is automatic (`TERM_PROGRAM`, `WEZTERM_EXECUTABLE`, `KITTY_WINDOW_ID`, `WT_SESSION`, platform) and respects which transports are actually registered on the machine. Force one with `CC_STATUS_BUTTONS_TRANSPORT=http|scheme|vscode|none`.
+Detection is automatic (`TMUX`, `TERM_PROGRAM`, `WEZTERM_EXECUTABLE`, `KITTY_WINDOW_ID`, `WT_SESSION`, platform) and respects which transports are actually registered on the machine. Force one with `CC_STATUS_BUTTONS_TRANSPORT=tmux|http|scheme|vscode|none`.
+
+### Why this exists
+
+Claude Code's own status line is one-way (JSON in, text out) and its keybindings are a closed action set with no "run command" action, so a button rendered *in Claude Code's status line* can only ever hand a URL to the OS — hence the browser/daemon transports. The one place you can have a genuinely **direct** clickable status-line button is **tmux**, which owns both the rendering and the mouse events of its own status bar and can bind a click to a shell command.
+
+### The tmux transport (recommended on Linux/macOS/WSL)
+
+Run Claude Code inside tmux, then:
+
+```
+cc-status-buttons tmux-setup     # enable mouse, add buttons to status-right, bind the click
+cc-status-buttons tmux-teardown  # undo
+```
+
+This renders each button into tmux's `status-right` wrapped in a clickable range (`#[range=user|<token>]<icon>#[norange]`) and binds `MouseDown1Status` so a click on a button fires `run-shell` → the button's command — **no browser, no daemon, no token, no http**. Clicks elsewhere on the status line keep their default behaviour. The button lives in tmux's status row (just below Claude Code's status line); requires tmux 3.3+ for clickable ranges. Re-run `tmux-setup` after changing your buttons.
 
 ### The button bus (http transport)
 
@@ -73,6 +89,8 @@ npx cc-status-buttons status              # registry, detected transport, bus li
 npx cc-status-buttons press <id>          # press from the shell
 npx cc-status-buttons bus                 # run the bus in the foreground
 npx cc-status-buttons register-scheme     # set up ccbtn:// for this OS
+npx cc-status-buttons tmux-setup          # wire clickable buttons into tmux's status bar
+npx cc-status-buttons tmux-teardown       # remove the tmux wiring
 ```
 
 ## Tests
@@ -83,4 +101,4 @@ node --test
 
 ## Status
 
-Early but functional: http/prompt/scheme/vscode transports implemented, 10 integration-heavy tests. First consumer: [claude-stock-ticker](https://github.com/noam-bash/claude-stock-ticker) (rotating symbol button). macOS scheme registration is implemented but not yet exercised on real hardware.
+Early but functional: tmux/http/prompt/scheme/vscode transports implemented, 13 integration-heavy tests. The tmux transport is verified end-to-end on tmux 3.4. First consumer: [claude-stock-ticker](https://github.com/noam-bash/claude-stock-ticker) (rotating symbol button). macOS scheme registration and the VS Code extension's click hop are implemented but not yet exercised on real hardware.

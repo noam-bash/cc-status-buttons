@@ -1,6 +1,6 @@
 {
   "name": "cc-status-buttons",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Clickable buttons for the Claude Code status line — one declarative API, per-terminal click transports (http, custom scheme, VS Code URI, prompt sentinel).",
   "type": "module",
   "main": "src/index.mjs",
